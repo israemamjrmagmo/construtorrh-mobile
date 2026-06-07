@@ -9,6 +9,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    env:
+      # Caminho fixo do SDK pré-instalado no ubuntu-latest
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,23 +33,23 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Configure local.properties
-        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
-
-      - name: Accept Android SDK licenses
+      - name: Configure Android SDK
         run: |
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
-          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
+          echo "sdk.dir=/usr/local/lib/android/sdk" > android/local.properties
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
             "platforms;android-35" "build-tools;35.0.0" 2>/dev/null || true
 
       - name: Build APK debug
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Xmx4g"
+          # Sem -Xmx alto para não forçar daemon separado (OOM no runner 7GB)
+          ./gradlew assembleDebug \
+            --no-daemon \
+            -Dorg.gradle.jvmargs="-Xmx2g -XX:MaxMetaspaceSize=512m" \
+            --warning-mode none
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
