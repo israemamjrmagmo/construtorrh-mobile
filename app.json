@@ -1,25 +1,16 @@
 {
   "expo": {
-    "name": "construtorrh-mobile",
+    "name": "ConstrutorRH",
     "slug": "construtorrh-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "ios": {
-      "supportsTablet": true
-    },
+    "splash": { "image": "./assets/splash-icon.png", "resizeMode": "contain", "backgroundColor": "#1e3a5f" },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
-      "predictiveBackGestureEnabled": false
+      "adaptiveIcon": { "foregroundImage": "./assets/android-icon-foreground.png", "backgroundColor": "#1e3a5f" },
+      "package": "com.magmo.construtorrh"
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    }
+    "scheme": "construtorrh"
   }
 }
