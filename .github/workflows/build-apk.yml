@@ -19,35 +19,41 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Setup Java 17
+      # Gradle 9.3.1 requer Java 21
+      - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      # FIX: Kotlin 2.0.21 tem bug no FIR compiler no GitHub Actions
-      # Patch: downgrade para 1.9.24 (sem FIR) no plugin do React Native
-      - name: Patch Kotlin 2.0.21 → 1.9.24 (fix FIR compiler bug)
+      # RAIZ DO PROBLEMA:
+      # RN gradle-plugin usa Kotlin 2.0.21 que tem bug FIR no GH Actions
+      # Gradle 9.3.1 usa Kotlin 2.2.0 internamente
+      # FIX: atualizar para 2.2.0 para combinar com Gradle 9.3.1
+      - name: Patch Kotlin 2.0.21 → 2.2.0 (compativel com Gradle 9.3.1)
         run: |
           TOML="node_modules/@react-native/gradle-plugin/gradle/libs.versions.toml"
-          if [ -f "$TOML" ]; then
-            echo "Antes: $(grep 'kotlin = ' $TOML)"
-            sed -i 's/kotlin = "2\.[0-9.]*"/kotlin = "1.9.24"/' "$TOML"
-            echo "Depois: $(grep 'kotlin = ' $TOML)"
-          fi
-          # Também patch em qualquer build.gradle.kts do plugin
-          find node_modules/@react-native/gradle-plugin -name "build.gradle.kts" | while read f; do
-            sed -i 's/version("2\.[0-9.]*")/version("1.9.24")/g' "$f"
-            sed -i 's/"kotlin-jvm" version "2\.[0-9.]*"/"kotlin-jvm" version "1.9.24"/g' "$f"
+          echo "Antes: $(grep 'kotlin = ' $TOML 2>/dev/null)"
+          sed -i 's/kotlin = "2\.0\.[0-9]*"/kotlin = "2.2.0"/' "$TOML" 2>/dev/null || true
+          echo "Depois: $(grep 'kotlin = ' $TOML 2>/dev/null)"
+
+          # Patch em todos os build.gradle.kts do plugin RN
+          find node_modules/@react-native/gradle-plugin -name "*.kts" 2>/dev/null | while read f; do
+            sed -i 's/kotlin("jvm") version "2\.0\.[0-9]*"/kotlin("jvm") version "2.2.0"/g' "$f"
           done
-          echo "Patch aplicado."
+
+          # Patch gradle.properties do projeto para suprimir warnings
+          echo "" >> android/gradle.properties
+          echo "kotlin.jvm.target.validation.mode=WARNING" >> android/gradle.properties
+          echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m" >> android/gradle.properties
+          echo "Gradle properties:"
+          tail -4 android/gradle.properties
 
       - name: Configure local.properties
-        run: |
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
+        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
 
       - name: Accept Android SDK licenses
         run: |
@@ -59,10 +65,10 @@ jobs:
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --warning-mode all
+          ./gradlew assembleDebug --no-daemon --stacktrace
         env:
           ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Xmx4g"
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
